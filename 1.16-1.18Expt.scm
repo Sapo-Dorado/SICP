@@ -1,0 +1,12 @@
+(define (expt b n)
+ (define (even? x)
+  (= (remainder x 2) 0))
+ (define (square x)
+  (* x x))
+ (define (fast-iter base exp answer)
+  (cond (= exp 1) answer
+        (not (even? exp)) (fast-iter base (- exp 1) (* base answer)))
+  (if (= (/ exp 2) 1)
+      (* (square base) answer)
+      (fast-iter (square base) (/expt 2) answer)))
+ (fast-iter b n 1))
