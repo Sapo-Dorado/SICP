@@ -5,11 +5,13 @@
 (define (same-variable? v1 v2)
   (and (variable? v1) (variable? v2) (eq? v1 v2)))
 
-
 (define (make-sum a1 a2)
-  (cond ((=number? a1 0) a2) ((=number? a2 0) a1)
-                             ((and (number? a1) (number? a2)) (+ a1 a2))
-                             (else (list '+ a1 a2))))
+  (cond ((=number? a1 0) a2)
+        ((=number? a2 0) a1)
+        ((and (number? a1) (number? a2)) (+ a1 a2))
+        (else (list '+ a1 a2))))
+  
+  
 
 (define (make-product m1 m2)
   (cond ((or (=number? m1 0) (=number? m2 0)) 0)
@@ -27,13 +29,38 @@
 
 (define (addend s) (cadr s))
 
-(define (augend s) (caddr s))
+(define (augend s) 
+  (define (fix n)
+      (if (pair? n)
+        (if (null? (cdr n))
+          (car n)
+        (make-sum (car n)(fix (cdr n))))
+      n))
+  (if (null? (cddr s))
+    (caddr s)
+    (fix (cddr s))))
+;this is not the most efficient way to do this because augend is called every time the deriv procedure is called so it is unnecessary to completely convert the list into the old make-sum
+;form. It could be written much more cleanly as :
+;(define (augend s)
+;  (if (null? (cdddr s))
+;     (caddr s)
+;     (cons '+ (cddr s))))
 
 (define (product? x) (and (pair? x) (eq? (car x) '*)))
 
 (define (multiplier p) (cadr p))
 
-(define (multiplicand p) (caddr p))
+(define (multiplicand p) 
+  (define (fix n)
+    (if (pair? n)
+      (if (null? (cdr n))
+        (car n)
+        (make-product (car n) (fix (cdr n))))
+      n))
+  (if (null? (cddr p))
+    (caddr p)
+    (fix (cddr p))))
+;This could be changed in the same way as the augend
 
 (define (exponentiation? x) (and (pair? x) (eq? (car x) '**)))
 
@@ -58,4 +85,4 @@
                 (else
                   (error "unknown expression type: DERIV" exp))))
 
-(deriv (list '** 'x 9) 'x)
+(deriv '(+ x x x x x x x) 'x)
