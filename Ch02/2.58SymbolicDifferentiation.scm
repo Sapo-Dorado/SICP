@@ -9,7 +9,7 @@
   (cond ((=number? a1 0) a2)
         ((=number? a2 0) a1)
         ((and (number? a1) (number? a2)) (+ a1 a2))
-        (else (list '+ a1 a2))))
+        (else (list a1 '+ a2))))
   
   
 
@@ -18,53 +18,53 @@
         ((=number? m1 1) m2)
         ((=number? m2 1) m1)
         ((and (number? m1) (number? m2)) (* m1 m2)) 
-        (else (list '* m1 m2))))
+        (else (list m1 '*  m2))))
 
 (define (make-exponent base exp)
   (cond ((= exp 0) 1)
         ((= exp 1) base)
-        (else (list '** base exp))))
+        (else (list base '** exp))))
 
-(define (sum? x) (and (pair? x) (eq? (car x) '+)))
+(define (sum? x)
+  (and (pair? x) (not (null? (cdr x))) (or  (eq? (cadr x) '+) (and (not (null? (cdddr x))) (eq? (cadddr x) '+)))))
 
-(define (addend s) (cadr s))
+(define (addend s) 
+  (if (eq? (cadr s) '+)
+    (car s)
+    (list (car s) (cadr s) (caddr s))))
 
 (define (augend s) 
-  (define (fix n)
-      (if (pair? n)
-        (if (null? (cdr n))
-          (car n)
-        (make-sum (car n)(fix (cdr n))))
-      n))
-  (if (null? (cddr s))
+  (if (null? (cdddr s))
     (caddr s)
-    (fix (cddr s))))
-;this is not the most efficient way to do this because augend is called every time the deriv procedure is called so it is unnecessary to completely convert the list into the old make-sum
-;form. It could be written much more cleanly as :
-;(define (augend s)
-;  (if (null? (cdddr s))
-;     (caddr s)
-;     (cons '+ (cddr s))))
+    (if (eq? (cadr s) '+)
+      (if (null? (cdddr s))
+        (caddr s)
+        (cddr s))
+      (if (null? (cdr(cddddr s)))
+        (car (cddddr s))
+      (cddddr s)))))
 
-(define (product? x) (and (pair? x) (eq? (car x) '*)))
+(define (product? x) (and (pair? x) (not (null? (cdr x)))(or (eq? (cadr x) '*) (and (not (null? (cdddr x))) (eq? (cadddr x) '*)))))
 
-(define (multiplier p) (cadr p))
+(define (multiplier p)
+  (if (eq? (cadr p) '*)
+    (car p)
+    (list (car p) (cadr p) (caddr p))))
 
 (define (multiplicand p) 
-  (define (fix n)
-    (if (pair? n)
-      (if (null? (cdr n))
-        (car n)
-        (make-product (car n) (fix (cdr n))))
-      n))
-  (if (null? (cddr p))
+  (if (null? (cdddr p))
     (caddr p)
-    (fix (cddr p))))
-;This could be changed in the same way as the augend
+    (if (eq? (cadr p) '*)
+      (if (null? (cdddr p))
+        (caddr p)
+        (cddr p))
+      (if (null? (cdr(cddddr p)))
+        (car (cddddr p))
+      (cddddr p)))))
 
-(define (exponentiation? x) (and (pair? x) (eq? (car x) '**)))
+(define (exponentiation? x) (and (pair? x) (eq? (cadr x) '**)))
 
-(define (base exp) (cadr exp))
+(define (base exp) (car exp))
 
 (define (exponent exp) (caddr exp))
 
@@ -85,4 +85,5 @@
                 (else
                   (error "unknown expression type: DERIV" exp))))
 
-(deriv '(+ x x x x x x x) 'x)
+
+(deriv (list 'x '** 3 '+ 'x '** 2 '+ 'x '** 1 '+ 1) 'x) 
