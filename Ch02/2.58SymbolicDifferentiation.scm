@@ -86,4 +86,3 @@
                   (error "unknown expression type: DERIV" exp))))
 
 
-(deriv (list 'x '** 3 '+ 'x '** 2 '+ 'x '** 1 '+ 1) 'x) 
