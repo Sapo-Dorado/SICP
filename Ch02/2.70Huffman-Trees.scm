@@ -82,6 +82,10 @@
                            (cddr pairs))))
          (successive-merge (adjoin-set tree rest-of-tree)))))
 
-(define tree (generate-huffman-tree '((A 3) (B 5) (C 6) (D 6))))
 
-(encode '(A B C D) tree)
+(define rock-tree (generate-huffman-tree '((A 2) (GET 2) (SHA 3) (WAH 1) (BOOM 1) (JOB 2) (NA 16) (YIP 9))))
+
+(length (encode '(GET A JOB SHA NA NA NA NA NA NA NA NA GET A JOB SHA NA NA NA NA NA NA NA NA WAH YIP YIP YIP YIP YIP YIP YIP YIP YIP SHA BOOM) rock-tree))
+
+
+;the huffman tree encodes the message in 84 bits while the fixed length code would encode it in 144 bits
