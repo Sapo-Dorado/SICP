@@ -6,7 +6,7 @@
 (define (get op type)
   (hash-table/get *op-table* (list op type) #f))
 
-(define (attach-tag type-tag contents) 
+(define (attach-tag type-tag contents)
   (if (eq? type-tag 'integer)
     contents
     (cons type-tag contents)))
@@ -19,14 +19,6 @@
 (define (contents datum)
   (if (pair? datum) (cdr datum)
     datum))
-
-
-
-
-
-
-
-
 
 
 (define (install-integer-package)
@@ -42,16 +34,10 @@
   (put 'equ? '(integer integer) =)
   (put '=zero? '(integer)
     (lambda (x) (= x 0)))
-  (put 'exp '(integer integer)
-    (lambda (x y) (tag (expt x y))))
   (put 'make 'integer (lambda (x) (tag (round x))))
   (put 'sine '(integer) (lambda (x) (sin x)))
   (put 'cosine '(integer) (lambda (x) (cos x)))
   'done)
-
-
-
-
 
 (define (install-real-package)
   (define (tag x) (attach-tag 'real x))
@@ -72,24 +58,6 @@
   (put 'sine '(real) (lambda (x) (sin x)))
   (put 'cosine '(real) (lambda (x) (cos x)))
   'done)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 (define (install-rational-package)
   (define (numer x) (car x)) (define (denom x) (cdr x)) (define (make-rat n d)
@@ -127,18 +95,6 @@
   (put 'sine '(rational) (lambda (x) (sin (/ (car x) (cdr x)))))
   (put 'cosine '(rational) (lambda (x) (cos (/ (car x) (cdr x)))))
   'done)
-
-
-
-
-
-
-
-
-
-
-
-
 
 (define (install-complex-package)
   (define (install-polar-package)
@@ -223,11 +179,6 @@
   (put 'real-part '(complex) real-part)
   'done)
 
-
-
-
-
-
 (define (install-raise-package)
   (define (raise-integer x)
       (make-rational x 1))
@@ -242,10 +193,6 @@
   (put 'value 'rational 2)
   (put 'value 'real 3)
   (put 'value 'complex 4))
-
-
-
-
 
 (define (install-project-package)
   (define (project-rational x)
@@ -267,7 +214,6 @@
   (put 'project '(real) project-real)
   (put 'project '(complex) project-complex))
 
-
 (define (drop x)
   (if (eq? (type-tag x) 'integer)
     x
@@ -275,25 +221,6 @@
       (if projection
         (drop projection)
         x))))
-
-
-
-
-
-(install-integer-package)
-(install-rational-package)
-(install-real-package)
-(install-complex-package)
-(install-raise-package)
-(install-project-package)
-
-(define put-coercion put)
-(define get-coercion get)
-
-(define (integer->complex n) (make-complex-from-real-imag (contents n) 0))
-(put-coercion 'integer
-              'complex
-              integer->complex)
 
 (define (apply-generic op . args)
     (define (find-value x)
@@ -332,7 +259,6 @@
 
 (define (make-real x) ((get 'make 'real) x))
 
-
 (define (add x y) (apply-generic 'add x y))
 (define (sub x y) (apply-generic 'sub x y))
 (define (mul x y) (apply-generic 'mul x y))
@@ -340,14 +266,16 @@
 (define (equ? x y) (apply-generic 'equ? x y))
 (define (=zero? x) (apply-generic '=zero? x))
 (define (complex-specific-op x y z) (apply-generic 'complex-specific-op x y z))
-(define (exp x y) (apply-generic 'exp x y))
 (define (raise x) (apply-generic 'raise x))
 (define (project x) (apply-generic 'project x))
 (define (real-part x) (apply-generic 'real-part x))
 (define (sine x) (apply-generic 'sine x))
 (define (cosine x) (apply-generic 'cosine x))
 
-(define a (make-complex-from-real-imag (make-rational 0 1) 0))
-(define b (make-rational 20 1))
-(define c (make-integer 20))
+(install-integer-package)
+(install-real-package)
+(install-rational-package)
+(install-complex-package)
+(install-raise-package)
+(install-project-package)
 
