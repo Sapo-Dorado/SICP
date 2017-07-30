@@ -45,6 +45,13 @@
         term-list
         (cons term term-list)))
 
+  (define (negate-terms list-terms)
+    (if (null? list-terms)
+      '()
+      (let ((coefficient (coeff (car list-terms)))
+            (power (order (car list-terms))))
+        (cons (make-term power (- coefficient)) (negate-terms (cdr list-terms))))))
+
   (define (the-empty-termlist) '())
   (define (first-term term-list) (car term-list))
   (define (rest-terms term-list) (cdr term-list))
@@ -72,6 +79,12 @@
             (if (= sum 0)
               #t
               #f))))))
+  (define (sub-poly poly1 poly2)
+    (if (same-variable? (variable poly1) (variable poly2))
+      (let ((negated (make-poly (variable poly1) (negate-terms (term-list poly2)))))
+        (add-poly negated poly1))
+       (error "Poly's not of same variable")))
+  
   (define (tag p)
     (attach-tag 'polynomial p))
   (put 'add '(polynomial polynomial) 
@@ -79,11 +92,10 @@
   (put 'mul '(polynomial polynomial)
        (lambda (p1 p2) (tag (mul-poly p1 p2))))
   (put '=zero? '(polynomial) =zero?-poly)
+  (put 'sub '(polynomial polynomial) (lambda (x y) (tag (sub-poly x y))))
   (put 'make 'polynomial
       (lambda (var terms) (tag (make-poly var terms))))
-  (put 'make 'term make-term)
-  (define a  '(x ((3 1) (2 1) (1 1) (0 1))))
-  (add-poly a a))
+  (put 'make 'term make-term))
 
 (install-polynomial-package)
 
