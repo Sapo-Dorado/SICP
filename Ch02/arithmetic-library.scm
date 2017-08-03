@@ -233,7 +233,7 @@
     (define (iter num args raised-args)
       (cond ((null? args) raised-args)
             ((= (find-value (car args)) num) (iter num (cdr args) (append raised-args (list (car args)))))
-            (else (iter num (cons (raise (car args)) (cdr args)) raised-args))))
+           (else (iter num (cons (raise (car args)) (cdr args)) raised-args))))
     (iter (find-highest-value args 0) args '()))
       (let ((type-tags (map type-tag args)))
         (let ((proc (get op type-tags)))
@@ -278,4 +278,3 @@
 (install-complex-package)
 (install-raise-package)
 (install-project-package)
-

@@ -1,5 +1,4 @@
 (load "arithmetic-library.scm")
-;;div terms only works for sparse polynomial
 
 (define (install-polynomial-package)
   (define (variable? x) (symbol? x))
@@ -63,16 +62,28 @@
     (put 'make-term 'dense make-term))
   (install-dense-package)
 
-  
 
+  (define (install-coersion-package)
+    (define (dense-terms->sparse-terms term-list)
+        (if (null? term-list)
+         '() 
+          (let ((new-o (order term-list 'dense))
+                (new-c (coeff (first-term term-list) 'dense)))
+            (let ((term (make-term new-o new-c 'sparse)))
+              (adjoin-term term (dense-terms->sparse-terms (rest-terms term-list)) 'sparse)))))
+    (put 'coerce->sparse 'dense dense-terms->sparse-terms))
+  (install-coersion-package)
+
+  (define (coerce->sparse term-list type)
+    ((get 'coerce->sparse type) term-list))
 
   (define (variable poly)
     (apply-generic 'variable poly))
   (define (term-list poly)
     (apply-generic 'term-list poly))
 
-  (define (order term type)
-    ((get 'order type) term))
+  (define (order terms type)
+    ((get 'order type) terms))
   (define (coeff term type)
     ((get 'coeff type) term))
   (define (make-term order coeff type)
@@ -85,13 +96,14 @@
 
   (define (make-type type)
     (get 'make type))
+
   (define (add-terms L1 L2 type1 type2)
-      (cond ((empty-termlist? L1) L2)
-            ((empty-termlist? L2) L1)
+    (let ((picked-type (pick-type type1 type2)))
+      (cond ((empty-termlist? L1) (if (eq? type2 picked-type)L2 (coerce->sparse L2 type2)))
+            ((empty-termlist? L2) (if (eq? type1 picked-type) L1 (coerce->sparse L1 type1)))
             (else
             (let ((t1 (first-term L1))
-                  (t2 (first-term L2))
-                  (picked-type (pick-type type1 type2)))
+                  (t2 (first-term L2)))
               (cond ((> (order L1 type1) (order L2 type2))
                       (adjoin-term
                       (make-term (order L1 type1) (coeff t1 type1) picked-type) (add-terms (rest-terms L1) L2 type1 type2) picked-type))
@@ -104,7 +116,7 @@
                                   (add (coeff t1 type1) (coeff t2 type2))
                                   picked-type)
                       (add-terms (rest-terms L1)
-                                (rest-terms L2) type1 type2) picked-type)))))))
+                                (rest-terms L2) type1 type2) picked-type))))))))
 
   (define (mul-terms L1 L2 type1 type2)
    (if (empty-termlist? L1)
@@ -127,12 +139,12 @@
   (define (adjoin-term term term-list type)
     ((get 'adjoin-term type) term term-list))
 
-  (define (negate-terms list-terms type1)
+  (define (negate-terms list-terms type1 desired-type)
     (if (null? list-terms)
       '()
       (let ((coefficient (coeff (car list-terms) type1))
             (power (order list-terms type1)))
-        (cons (make-term power (- coefficient) type1) (negate-terms (cdr list-terms) type1)))))
+        (cons (make-term power (- coefficient) desired-type) (negate-terms (cdr list-terms) type1 desired-type)))))
 
   (define (add-poly p1 p2)
     (if (same-variable? (variable p1) (variable p2))
@@ -158,8 +170,9 @@
 
   (define (sub-poly poly1 poly2)
     (if (same-variable? (variable poly1) (variable poly2))
-      (let ((negated ((make-type (pick-type (type poly1) (type poly2))) (variable poly1) (negate-terms (term-list poly2) (type poly2)))))
-        (add-poly negated poly1))
+      (let ((picked-type (pick-type (type poly1) (type poly2))))
+        (let ((negated ((make-type picked-type) (variable poly1) (negate-terms (term-list poly2) (type poly2) picked-type))))
+        (add-poly negated poly1)))
        (error "Poly's not of same variable")))
 
   (define (div-terms L1 L2 type1 type2)
@@ -176,14 +189,14 @@
                         (add-terms L1 
                                    (negate-terms
                                      (mul-terms (list (make-term new-o new-c 'sparse)) L2 'sparse type2)
-                                                'sparse)
+                                                'sparse 'sparse)
                                      type1 'sparse)
                         L2
                         'sparse type2)))
                   (list (cons (make-term new-o new-c 'sparse) (car rest-of-result)) (cadr rest-of-result))))))))
 
   (define (div-poly p1 p2)
-    (if (and (same-variable? (variable p1) (variable p2)) (eq? (type p1) 'sparse))
+    (if (same-variable? (variable p1) (variable p2)) 
                    (div-terms (term-list p1) (term-list p2) (type p1) (type p2))))
 
 
@@ -211,7 +224,3 @@
 (define (make-term order coeff)
   ((get 'make 'term) order coeff))
 
-(define a (make-sparse-polynomial 'x '((2 1) (1 1))))
-(define b (make-sparse-polynomial 'x '((1 1))))
-
-(div a b)
