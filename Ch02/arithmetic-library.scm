@@ -25,6 +25,9 @@
     (if (= y 0)
       x
       (gcd y (remainder x y))))
+  (define (reduce-integers n d)
+    (let ((g (gcd n d)))
+      (cons (/ n g) (/ d g))))
 
   (define (tag x) (attach-tag 'integer x))
   (put 'add '(integer integer)
@@ -42,6 +45,7 @@
   (put 'make 'integer (lambda (x) (tag (round x))))
   (put 'sine '(integer) (lambda (x) (sin x)))
   (put 'cosine '(integer) (lambda (x) (cos x)))
+  (put 'reduce '(integer integer) reduce-integers)
   'done)
 
 (define (install-real-package)
@@ -68,7 +72,7 @@
   (define (numer x) (car x))
   (define (denom x) (cdr x))
   (define (make-rat n d)
-    (cons n d))
+    (reduce n d))
   (define (add-rat x y)
     (make-rat (add (mul (numer x) (denom y))
                   (mul (numer y) (denom x)))
