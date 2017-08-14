@@ -1,0 +1,17 @@
+(define (real-count-pairs x)
+  (let ((data-structure '()))
+    (define (try x)
+      (define (check x data)
+        (if (null? data)
+          (begin (if (null? data-structure)
+                  (set! data-structure (list x))
+                  (set-cdr! (last-pair data-structure) (list x))) #t)
+          (if (eq? x (car data))
+            #f
+            (check x (cdr data)))))
+      (if (not (pair? x))
+        0
+        (+ (try (car x))
+           (try (cdr x))
+           (if (check x data-structure) 1 0))))
+    (try x)))
