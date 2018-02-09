@@ -1,0 +1,13 @@
+(load "stream-library.scm")
+(define (RLC R L C dt)
+  (lambda (vC0 iL0)
+    (define iL (new-integral (delay diL) iL0 dt))
+    (define vC (new-integral (delay dvC) vC0 dt))
+    (define diL (add-streams (scale-stream vC (/ 1 L))
+                             (scale-stream iL (- 0 (/ R L)))))
+    (define dvC (scale-stream iL (/ -1 C)))
+    (cons vC iL)))
+
+(define RLC1 (RLC 1 1 .2 .1))
+(show-stream (car (RLC1 10 0)) 5)
+(show-stream (cdr (RLC1 10 0)) 5)

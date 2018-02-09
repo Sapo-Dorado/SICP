@@ -13,7 +13,8 @@
 
 (define (display-line x) (newline) (display x))
 
-(define (stream-enumerate-interval low high) (if (> low high)
+(define (stream-enumerate-interval low high)
+  (if (> low high)
       the-empty-stream
       (cons-stream
         low
@@ -117,3 +118,11 @@
                  (add-streams (scale-stream integrand dt)
                               int)))
   int)
+
+(define (new-integral delayed-integrand initial-value dt)
+  (define int
+    (cons-stream initial-value
+                 (let ((integrand (force delayed-integrand)))
+                    (add-streams (scale-stream integrand dt) int))))
+  int)
+
