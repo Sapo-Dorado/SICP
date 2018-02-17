@@ -1,0 +1,21 @@
+;used help from Barry Allison https://wizardbook.wordpress.com/2010/12/26/exercise-4-5/
+(define (cond-recipient clause) (caddr clause))
+(define (cond-recipient-clause? clause) (eq? (cadr clause) '=>))
+(define (make-cond-recipient clause predicate)
+  (list (cond-recipient clause) predicate))
+(define (cond-consequent clause predicate)
+  (if (cond-recipient-clause? clause)
+      (make-cond-recipient clause predicate)
+      (sequence->exp (cond-actions clause))))
+
+(define (expand-clauses clauses)
+  (if (null? clauses)
+    'false
+    (let ((first (car clauses)) (rest (cdr clauses)))
+      (if (cond-else-clause? first)
+        (if (null? rest)
+          (sequence->exp (cond-actions first))
+          (error "ELSE clause isn't last: COND->IF" clauses))
+          (make-if (cond-predicate first)
+                    (cond-consequent (cond-actions first))
+                    (expand-clauses rest))))))
