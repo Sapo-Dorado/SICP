@@ -1,0 +1,48 @@
+;;see evaluatorfor4.16.scm for the implementation
+
+(define (lookup-variable-value var env)
+  (define (env-loop env)
+    (if (eq? env the-empty-environment)
+        (error "Unbound variable" var)
+        (let ((frame (first-frame env)))
+          (if (bound? var frame)
+              (let ((val (check-val (frame-binding var frame))))
+                (if (eq? val '*unassigned*)
+                    (error "variable unassigned:" var)
+                    val))
+              (env-loop (enclosing-environment env))))))
+  (env-loop env))
+ 
+(define (make-procedure parameters body env)
+  (define (scanned-body body)
+    (cond ((null? body) body)
+          ((definition? (car body)) (scanned-body (cdr body))) 
+          (else (cons (car body) 
+                      (scanned-body (cdr body))))))
+  (define (extract-definitions proc-body def-list)
+    (if (null? proc-body)
+        def-list
+        (let ((first-command (car proc-body)))
+          (if (definition? first-command)
+              (extract-definitions (cdr proc-body) (append def-list (list first-command)))
+              (extract-definitions (cdr proc-body) def-list)))))
+  (define (create-body proc-body)
+    (let* ((defs (extract-definitions proc-body '()))
+           (vars (map definition-variable defs))
+           (vals (map definition-value defs)))
+      (define (make-parameters vars)
+        (if (null? vars)
+            vars
+            (cons (list (car vars) '(quote *unassigned*)) (make-parameters (cdr vars)))))
+      (define (make-assignment-body vars vals)
+        (if (null? vars)
+            vars
+            (cons (list 'set! (car vars) (car vals)) (make-assignment-body (cdr vars) (cdr vals)))))
+      (define (make-body)
+        (append (make-assignment-body vars vals) (scanned-body proc-body)))
+      (if (null? defs)
+          body
+          (list (make-let (make-parameters vars) (make-body))))))
+  (list 'procedure parameters (create-body body) env))
+
+(define (procedure-body p) (caddr p))

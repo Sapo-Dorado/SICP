@@ -1,6 +1,6 @@
 ;;
 ;;
-;;updated for 4.1-4.15
+;;updated for 4.16-4.21 and 4.26
 ;;
 ;;
 
@@ -35,6 +35,7 @@
         (list '- -)
         (list '* *)
         (list '/ /)
+        (list 'display display)
         (list '= =)))
 (define apply-in-underlying-scheme apply)
 
@@ -56,6 +57,9 @@
       (cons (eval (first-operand exps) env)
             (list-of-values (rest-operands exps) env))))
 
+(define (eval-sequence exps env)
+  (cond ((last-exp? exps) (eval (first-exp exps) env))
+        (else (eval (first-exp exps) env) (eval-sequence (rest-exps exps) env))))
 
 (define (self-evaluating? exp)
   (cond ((number? exp) true)
@@ -73,14 +77,42 @@
 
 (define (true? x) (not (eq? x false)))
 (define (false? x) (eq? x false))
-(define (make-procedure parameters body env) (list 'procedure parameters body env))
 (define (compound-procedure? p) (tagged-list? p 'procedure))
 (define (procedure-parameters p) (cadr p))
 (define (procedure-body p) (caddr p))
 (define (procedure-environment p) (cadddr p))
-(define (eval-sequence exps env)
-  (cond ((last-exp? exps) (eval (first-exp exps) env))
-        (else (eval (first-exp exps) env) (eval-sequence (rest-exps exps) env))))
+
+(define (make-procedure parameters body env)
+  (define (scanned-body body)
+    (cond ((null? body) body)
+          ((definition? (car body)) (scanned-body (cdr body))) 
+          (else (cons (car body) 
+                      (scanned-body (cdr body))))))
+  (define (extract-definitions proc-body def-list)
+    (if (null? proc-body)
+        def-list
+        (let ((first-command (car proc-body)))
+          (if (definition? first-command)
+              (extract-definitions (cdr proc-body) (append def-list (list first-command)))
+              (extract-definitions (cdr proc-body) def-list)))))
+  (define (create-body proc-body)
+    (let* ((defs (extract-definitions proc-body '()))
+           (vars (map definition-variable defs))
+           (vals (map definition-value defs)))
+      (define (make-parameters vars)
+        (if (null? vars)
+            vars
+            (cons (list (car vars) '(quote *unassigned*)) (make-parameters (cdr vars)))))
+      (define (make-assignment-body vars vals)
+        (if (null? vars)
+            vars
+            (cons (list 'set! (car vars) (car vals)) (make-assignment-body (cdr vars) (cdr vals)))))
+      (define (make-body)
+        (append (make-assignment-body vars vals) (scanned-body proc-body)))
+      (if (null? defs)
+          body
+          (list (make-let (make-parameters vars) (make-body))))))
+  (list 'procedure parameters (create-body body) env))
 
 ;;environment operations
 (define (extend-environment vars vals base-env)
@@ -95,6 +127,8 @@
 
 (define (make-frame vars values) (map cons vars values))
 (define (frame-binding var frame) (assoc var frame))
+(define (check-var binding) (car binding))
+(define (check-val binding) (cdr binding))
 (define bound? frame-binding) 
 (define (add-binding-to-frame! var val frame)
   (define (add-binding! binding frame)
@@ -104,16 +138,19 @@
 (define (set-binding-in-frame! var val frame)
   (set-cdr! (frame-binding var frame) val))
 
-(define (lookup-variable-value var env)
+ (define (lookup-variable-value var env)
   (define (env-loop env)
     (if (eq? env the-empty-environment)
         (error "Unbound variable" var)
         (let ((frame (first-frame env)))
           (if (bound? var frame)
-              (cdr (frame-binding var frame))
+              (let ((val (check-val (frame-binding var frame))))
+                (if (eq? val '*unassigned*)
+                    (error "variable unassigned:" var)
+                    val))
               (env-loop (enclosing-environment env))))))
   (env-loop env))
- 
+
 (define (set-variable-value! var val env)
   (define (env-loop env)
     (if (eq? env the-empty-environment)
@@ -282,7 +319,38 @@
                           (iter (rest-let* parameters))))))
   (iter (let*-parameters exp) (let*-body exp)))
 
+(define (letrec? exp) (tagged-list exp 'letrec))
+(define (letrec-params exp) (cadr exp))
+(define (letrec-body exp) (cddr exp))
+(define (letrec->let exp)
+  (let* ((params (letrec-params exp))
+         (vars (map car params))
+         (vals (map cadr params)))
+    (define (make-params vars)
+      (define (iter exp output)
+        (if (null? exp)
+            output
+            (iter (cdr exp) (append output (list (list (car exp) '(quote *unassigned*)))))))
+      (iter vars '()))
+    (define (make-body vars vals)
+      (define (make-assignments vars vals output)
+        (if (null? vars)
+            output
+            (make-assignments (cdr vars) (cdr vals) (append output (list (list 'set! (car vars) (car vals)))))))
+      (append (make-assignments vars vals '()) (letrec-body exp)))
+    (make-let (make-params vars) (make-body vars vals))))
 
+(define (unless? exp) (tagged-list? 'unless exp))
+(define (unless-condition exp) (cadr exp))
+(define (unless-usual-val exp) (caddr exp))
+(define (unless-exceptional-val exp)
+  (if (not (null? (cdddr exp)))
+      (cadddr exp)
+      false))
+(define (unless->if exp)
+  (make-if (unless-condition exp)
+           (unless-exceptional-val exp)
+           (unless-usual-val exp)))
 
   
 
@@ -299,6 +367,9 @@
 (put 'or eval-or)
 (put 'let (lambda (exp env) (eval (let->combination exp) env)))
 (put 'let* (lambda (exp env) (eval (let*->nested-lets exp) env)))
+(put 'letrec (lambda (exp env) (eval (letrec->let exp) env)))
+(put 'unless (lambda (exp env) (eval (unless->if exp) env)))
+
 
 
 ;global environment

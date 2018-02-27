@@ -1,0 +1,10 @@
+;;from Barry Allison who got it from Wikipedia
+(define (a-pythagorean-triple-from low)
+  (define (limit i) (if (odd? i)
+                        (/ (- (square i) 1) 2)
+                        (- (/ (square i) 4) 1)))
+  (let* ((i (an-integer-starting-from low))
+         (j (an-integer-between i (limit i)))
+         (k (sqrt (+ (square i) (square j)))))
+    (require (integer? k))
+    (list i j k)))

@@ -1,6 +1,7 @@
 ;;
 ;;
-;;updated for 4.1-4.15
+;;updated for 4.16 
+;;make-procedure at bottom of file
 ;;
 ;;
 
@@ -56,6 +57,9 @@
       (cons (eval (first-operand exps) env)
             (list-of-values (rest-operands exps) env))))
 
+(define (eval-sequence exps env)
+  (cond ((last-exp? exps) (eval (first-exp exps) env))
+        (else (eval (first-exp exps) env) (eval-sequence (rest-exps exps) env))))
 
 (define (self-evaluating? exp)
   (cond ((number? exp) true)
@@ -73,14 +77,10 @@
 
 (define (true? x) (not (eq? x false)))
 (define (false? x) (eq? x false))
-(define (make-procedure parameters body env) (list 'procedure parameters body env))
 (define (compound-procedure? p) (tagged-list? p 'procedure))
 (define (procedure-parameters p) (cadr p))
 (define (procedure-body p) (caddr p))
 (define (procedure-environment p) (cadddr p))
-(define (eval-sequence exps env)
-  (cond ((last-exp? exps) (eval (first-exp exps) env))
-        (else (eval (first-exp exps) env) (eval-sequence (rest-exps exps) env))))
 
 ;;environment operations
 (define (extend-environment vars vals base-env)
@@ -95,6 +95,8 @@
 
 (define (make-frame vars values) (map cons vars values))
 (define (frame-binding var frame) (assoc var frame))
+(define (check-var binding) (car binding))
+(define (check-val binding) (cdr binding))
 (define bound? frame-binding) 
 (define (add-binding-to-frame! var val frame)
   (define (add-binding! binding frame)
@@ -110,7 +112,10 @@
         (error "Unbound variable" var)
         (let ((frame (first-frame env)))
           (if (bound? var frame)
-              (cdr (frame-binding var frame))
+              (let ((val (check-val (frame-binding var frame))))
+                (if (eq? val '*unassigned*)
+                    (error "variable unassigned:" var)
+                    val))
               (env-loop (enclosing-environment env))))))
   (env-loop env))
  
@@ -341,4 +346,35 @@
       (display object)))
 
 (define the-global-environment (setup-environment))
+(define (make-procedure parameters body env)
+  (define (scanned-body body)
+    (cond ((null? body) body)
+          ((definition? (car body)) (scanned-body (cdr body))) 
+          (else (cons (car body) 
+                      (scanned-body (cdr body))))))
+  (define (extract-definitions proc-body def-list)
+    (if (null? proc-body)
+        def-list
+        (let ((first-command (car proc-body)))
+          (if (definition? first-command)
+              (extract-definitions (cdr proc-body) (append def-list (list first-command)))
+              (extract-definitions (cdr proc-body) def-list)))))
+  (define (create-body proc-body)
+    (let* ((defs (extract-definitions proc-body '()))
+           (vars (map definition-variable defs))
+           (vals (map definition-value defs)))
+      (define (make-parameters vars)
+        (if (null? vars)
+            vars
+            (cons (list (car vars) '(quote *unassigned*)) (make-parameters (cdr vars)))))
+      (define (make-assignment-body vars vals)
+        (if (null? vars)
+            vars
+            (cons (list 'set! (car vars) (car vals)) (make-assignment-body (cdr vars) (cdr vals)))))
+      (define (make-body)
+        (append (make-assignment-body vars vals) (scanned-body proc-body)))
+      (if (null? defs)
+          body
+          (list (make-let (make-parameters vars) (make-body))))))
+  (list 'procedure parameters (create-body body) env))
 (driver-loop)
