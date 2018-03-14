@@ -26,6 +26,9 @@
         (list 'null? null?)
         (list 'list list)
         (list 'not not)
+        (list 'eq? eq?)
+        (list 'even? even?)
+        (list 'odd? odd?)
         (list '+ +)
         (list '- -)
         (list '* *)
@@ -69,9 +72,11 @@
 
 (define (analyze-sequence exps)
     (define (sequentially a b)
-        (lambda (env succeed fail) (a env
-            (b env succeed fail2))
-            fail))
+        (lambda (env succeed fail)
+          (a env
+             (lambda (a-value fail2)
+               (b env succeed fail2))
+            fail)))
     (define (loop first-proc rest-procs)
         (if (null? rest-procs)
             first-proc
@@ -177,6 +182,30 @@
         (add-binding-to-frame! var val frame))))
 
 ;;table-expressions
+(define (require? exp) (tagged-list? exp 'require))
+(define (require-predicate exp) (cadr exp))
+(define (analyze-require exp)
+  (let ((pproc (analyze (require-predicate exp))))
+    (lambda (env succeed fail)
+      (pproc env
+             (lambda (pred-value fail2)
+               (if (not (true? pred-value))
+                   (fail)
+                   (succeed 'ok fail2)))
+             fail))))
+
+(define (if-fail? exp) (tagged-list? exp 'if-fail))
+(define (if-fail-first-exp exp) (cadr exp))
+(define (if-fail-fail-exp exp) (caddr exp))
+(define (analyze-if-fail exp)
+  (let ((first (analyze (if-fail-first-exp exp)))
+        (alt (analyze (if-fail-fail-exp exp))))
+    (lambda (env succeed fail)
+      (first env
+             succeed
+             (lambda ()
+               (alt env succeed fail))))))
+
 (define (ramb? exp) (tagged-list? exp 'ramb))
 (define (ramb-choices exp) (cdr exp))
 (define (one-of l) (list-ref l (random (length l))))
@@ -233,6 +262,18 @@
                                     (set-variable-value! var old-value env)
                                     (fail2)))))
                    fail))))
+(define (permanent-assignment? exp) (tagged-list? exp 'permanent-set!))
+(define (analyze-permanent-assignment exp)
+  (let ((var (assignment-variable exp))
+        (vproc (analyze (assignment-value exp))))
+    (lambda (env succeed fail)
+      (vproc env
+             (lambda (val fail2)
+               (set-variable-value! var val env)
+               (succeed 'ok
+                        (lambda ()
+                          (fail2))))
+             fail))))
 
 (define (definition? exp) (tagged-list? exp 'define))
 (define (definition-variable exp)
@@ -360,6 +401,9 @@
 (put 'let (lambda (exp) (analyze (let->combination exp))))
 (put 'amb analyze-amb)
 (put 'ramb analyze-ramb)
+(put 'permanent-set! analyze-permanent-assignment)
+(put 'if-fail analyze-if-fail)
+(put 'require analyze-require)
 
 ;;global environment
 (define (setup-environment)
